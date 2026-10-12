@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/src/generated/prisma
+
+# Şablon env dosyasının GitHub'a yüklenmesine izin ver
+!.env.example
+
+# AI Editor files
+skills-lock.json
