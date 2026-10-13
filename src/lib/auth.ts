@@ -6,6 +6,7 @@ import { prisma } from "./prisma";
 import bcrypt from "bcryptjs";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+    secret: process.env.AUTH_SECRET,
     adapter: PrismaAdapter(prisma),
     session: { strategy: "jwt" }, // Credentials provider kullanıldığında JWT zorunludur
     pages: {
