@@ -31,7 +31,7 @@ export default async function DashboardLayout({
         { name: "Takvim", href: "/calendar", icon: Calendar },
         { name: "Analitik", href: "/analytics", icon: BarChart3 },
         { name: "AI Danışman", href: "/ai-coach", icon: Bot },
-        { name: "Ayarlar", href: "/settings", icon: Settings },
+        { name: "Müsaitlik", href: "/settings", icon: Settings },
     ];
 
     return (
