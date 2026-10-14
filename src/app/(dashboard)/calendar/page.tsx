@@ -1,8 +1,9 @@
 // src/app/(dashboard)/calendar/page.tsx
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, BookOpen, AlertCircle, Sparkles } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, AlertCircle, Sparkles, CheckCircle2, Play } from "lucide-react";
 import Link from "next/link";
+import { generateStudyPlan } from "@/server/actions/ai-planner";
 
 const DAYS_OF_WEEK = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
 
@@ -13,7 +14,7 @@ export default async function CalendarPage() {
     const exams = await prisma.exam.findMany({
         where: {
             userId: session?.user?.id,
-            date: { gte: new Date() } // Sadece bugünden sonraki sınavlar
+            date: { gte: new Date() }
         },
         include: { subject: true },
         orderBy: { date: 'asc' }
@@ -24,51 +25,62 @@ export default async function CalendarPage() {
         where: { userId: session?.user?.id },
     });
 
+    // Oluşturulan çalışma görevlerini getir
+    const tasks = await prisma.studyTask.findMany({
+        where: { userId: session?.user?.id },
+        include: { subject: true, topic: true },
+        orderBy: { date: 'asc' }
+    });
+
     return (
         <div className="max-w-6xl mx-auto space-y-6">
-            {/* Üst Kısım: Başlık ve Kontroller */}
+            {/* Üst Kısım: Başlık ve AI Plan Oluşturma Butonu */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                        <CalendarIcon size={24} className="text-blue-600" /> Çalışma Takvimi
+                        <CalendarIcon size={24} className="text-violet-600" /> Çalışma Takvimi
                     </h1>
-                    <p className="text-slate-500 mt-1">Haftalık planını incele ve yeni oturumlar oluştur.</p>
+                    <p className="text-slate-500 mt-1">Haftalık planını incele ve yapay zekâ ile yeni oturumlar oluştur.</p>
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <button className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity shadow-sm">
-                        <Sparkles size={18} className="text-blue-100" />
-                        AI ile Plan Oluştur
-                    </button>
+                    <form action={async () => {
+                        "use server";
+                        await generateStudyPlan();
+                    }}>
+                        <button type="submit" className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 transition-opacity shadow-md shadow-purple-500/20 cursor-pointer">
+                            <Sparkles size={18} className="text-fuchsia-200" />
+                            AI ile Plan Oluştur
+                        </button>
+                    </form>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 {/* SOL: Haftalık Izgara (Takvim Görünümü) */}
-                <div className="lg:col-span-3 bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                <div className="lg:col-span-3 bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden flex flex-col">
                     {/* Takvim Üst Barı (Günler) */}
-                    <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50">
-                        {DAYS_OF_WEEK.map((day, i) => (
+                    <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50/70">
+                        {DAYS_OF_WEEK.map((day) => (
                             <div key={day} className="p-3 text-center border-r border-slate-200 last:border-r-0">
-                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{day}</span>
+                                <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">{day}</span>
                             </div>
                         ))}
                     </div>
 
-                    {/* Takvim Gövdesi (Hücreler) */}
-                    <div className="grid grid-cols-7 min-h-[500px]">
+                    {/* Takvim Gövdesi (Hücreler ve AI Görevleri) */}
+                    <div className="grid grid-cols-7 min-h-[550px] bg-slate-50/30">
                         {DAYS_OF_WEEK.map((day, i) => {
-                            // Veritabanında Pazar 0, Pazartesi 1 olarak tutulduğu için dönüşüm yapıyoruz
                             const dbDayIndex = i === 6 ? 0 : i + 1;
                             const daySlots = availability.filter(slot => slot.dayOfWeek === dbDayIndex);
 
                             return (
-                                <div key={day} className="border-r border-slate-200 last:border-r-0 p-2 relative group hover:bg-slate-50 transition-colors">
+                                <div key={day} className="border-r border-slate-200 last:border-r-0 p-2 flex flex-col gap-2 relative group">
                                     {/* Müsaitlik Göstergesi */}
                                     {daySlots.length > 0 && (
-                                        <div className="mb-2">
+                                        <div className="space-y-1 mb-2">
                                             {daySlots.map(slot => (
-                                                <div key={slot.id} className="text-[10px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-100 rounded px-1.5 py-0.5 mb-1 flex items-center justify-center gap-1">
+                                                <div key={slot.id} className="text-[10px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200/60 rounded-md px-1.5 py-1 flex items-center justify-center gap-1 shadow-xs">
                                                     <Clock size={10} />
                                                     {slot.startTime} - {slot.endTime}
                                                 </div>
@@ -76,29 +88,55 @@ export default async function CalendarPage() {
                                         </div>
                                     )}
 
-                                    {/* Gelecekte buraya AI tarafından oluşturulan StudySession kartları gelecek */}
-                                    <div className="flex flex-col items-center justify-center h-full opacity-0 group-hover:opacity-100 transition-opacity absolute inset-0">
-                                        <span className="text-xs text-slate-400 font-medium">+ Görev</span>
+                                    {/* AI Tarafından Atanan Görevler / Oturumlar */}
+                                    <div className="space-y-2 flex-1">
+                                        {tasks.map(task => {
+                                            const taskDate = new Date(task.date);
+                                            const taskDay = taskDate.getDay(); // 0: Pazar, 1: Pazartesi...
+
+                                            if (taskDay === dbDayIndex) {
+                                                return (
+                                                    <Link
+                                                        href={`/session/${task.id}`}
+                                                        key={task.id}
+                                                        className="bg-white border border-violet-100 rounded-xl p-2.5 shadow-xs hover:shadow-md hover:border-violet-300 transition-all block cursor-pointer"
+                                                    >
+                                                        <div className="flex items-center gap-1.5 mb-1">
+                                                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: task.subject?.color || '#8b5cf6' }} />
+                                                            <span className="text-[10px] font-bold text-slate-700 truncate">{task.subject?.name}</span>
+                                                        </div>
+                                                        <p className="text-xs font-semibold text-slate-900 leading-tight">{task.title}</p>
+                                                        <div className="flex items-center justify-between mt-2">
+                                                            <span className="text-[10px] font-medium text-slate-500">
+                                                                {task.startTime} ({task.durationMinutes} dk)
+                                                            </span>
+                                                            <Play size={12} className="text-violet-500" />
+                                                        </div>
+                                                    </Link>
+                                                );
+                                            }
+                                            return null;
+                                        })}
                                     </div>
                                 </div>
-                            )
+                            );
                         })}
                     </div>
                 </div>
 
                 {/* SAĞ: Yaklaşan Sınavlar ve Bildirimler */}
                 <div className="space-y-4">
-                    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-                        <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                    <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+                        <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
                             <AlertCircle size={18} className="text-orange-500" /> Yaklaşan Sınavlar
                         </h3>
 
                         <div className="space-y-3">
                             {exams.length === 0 ? (
-                                <p className="text-sm text-slate-500 text-center py-2">Yaklaşan sınavın yok.</p>
+                                <p className="text-sm text-slate-500 text-center py-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">Yaklaşan sınavın yok.</p>
                             ) : (
                                 exams.map(exam => (
-                                    <div key={exam.id} className="bg-orange-50 border border-orange-100 p-3 rounded-xl">
+                                    <div key={exam.id} className="bg-orange-50/70 border border-orange-100 p-3.5 rounded-2xl">
                                         <div className="flex items-center gap-2 mb-1">
                                             <div className="w-2 h-2 rounded-full" style={{ backgroundColor: exam.subject.color || '#f97316' }} />
                                             <span className="text-xs font-semibold text-slate-700">{exam.subject.name}</span>
@@ -112,8 +150,8 @@ export default async function CalendarPage() {
                             )}
                         </div>
 
-                        <Link href="/subjects" className="block text-center text-sm text-blue-600 font-medium mt-4 hover:underline">
-                            Tümünü Yönet
+                        <Link href="/subjects" className="block text-center text-sm font-semibold text-violet-600 mt-5 hover:underline">
+                            Tüm Dersleri Yönet →
                         </Link>
                     </div>
                 </div>
