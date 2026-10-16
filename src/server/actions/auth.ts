@@ -41,7 +41,7 @@ export async function login(formData: FormData) {
     try {
         await signIn("credentials", {
             ...Object.fromEntries(formData),
-            redirectTo: "/",
+            redirectTo: "/dashboard", 
         });
     } catch (error) {
         if (error instanceof AuthError) {
@@ -52,6 +52,6 @@ export async function login(formData: FormData) {
                     return { error: "Giriş yapılamadı, lütfen tekrar deneyin." };
             }
         }
-        throw error; // Next.js yönlendirmeleri (redirect) throw error fırlatır, bu satır önemlidir
+        throw error;
     }
 }
