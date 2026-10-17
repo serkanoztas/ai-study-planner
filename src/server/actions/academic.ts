@@ -105,3 +105,39 @@ export async function deleteExam(id: string, subjectId: string) {
         return { error: "Sınav silinemedi." };
     }
 }
+
+// --- ÇALIŞMA OTURUMU (STUDY SESSION) AKSİYONLARI ---
+
+export async function completeStudySession(taskId: string, actualDuration: number) {
+    const session = await auth();
+    if (!session?.user?.id) throw new Error("Yetkisiz işlem.");
+
+    try {
+        // 1. Görevi (StudyTask) bul ve doğrula
+        const task = await prisma.studyTask.findUnique({
+            where: { id: taskId, userId: session.user.id }
+        });
+
+        if (!task) return { error: "Görev bulunamadı." };
+
+        // 2. StudySession (Çalışma Oturumu) kaydı oluştur
+        await prisma.studySession.create({
+            data: {
+                userId: session.user.id,
+                taskId: taskId,
+                actualDuration: actualDuration, // Dakika cinsinden Timer'dan gelen süre
+                status: "COMPLETED", // Analytics sayfasında bunu sayoyoruz
+            }
+        });
+
+        // 3. İlgili sayfaları yenile (Analytics, Dashboard ve Takvim güncellensin)
+        revalidatePath("/dashboard");
+        revalidatePath("/analytics");
+        revalidatePath("/calendar");
+
+        return { success: true };
+    } catch (error) {
+        console.error("Session Error:", error);
+        return { error: "Çalışma oturumu kaydedilemedi." };
+    }
+}
