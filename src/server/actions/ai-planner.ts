@@ -71,7 +71,32 @@ Kurallar:
         const cleanJson = textResponse.replace(/```json/g, "").replace(/```/g, "").trim();
         const plannedTasks = JSON.parse(cleanJson);
 
-        // 1. Önce aktif yeni bir StudyPlan oluşturalım
+
+
+
+        // 1. Sadece durumu PENDING (Bekliyor) olan, yani başlanmamış görevleri siliyoruz ki geçmişte çalışılmış süreler Analytics'ten kaybolmasın.
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+
+        await prisma.studyTask.deleteMany({
+            where: {
+                userId,
+                date: { gte: today }, // Bugün ve sonrası
+            }
+        });
+
+        await prisma.studyPlan.updateMany({
+            where: {
+                userId,
+                isActive: true
+            },
+            data: { isActive: false }
+        });
+
+
+
+        // 2. Önce aktif yeni bir StudyPlan oluşturalım
         const newPlan = await prisma.studyPlan.create({
             data: {
                 userId,
@@ -81,7 +106,7 @@ Kurallar:
             }
         });
 
-        // 2. Gelen görevleri StudyTask olarak bu plana bağlı olarak kaydedelim
+        // 3. Gelen görevleri StudyTask olarak bu plana bağlı olarak kaydedelim
         for (const task of plannedTasks) {
             await prisma.studyTask.create({
                 data: {
@@ -98,7 +123,7 @@ Kurallar:
         }
 
         revalidatePath("/calendar");
-        revalidatePath("/");
+        revalidatePath("/dashboard");
         return { success: true, message: "Yapay zekâ çalışma planını başarıyla oluşturdu!" };
 
     } catch (error: any) {

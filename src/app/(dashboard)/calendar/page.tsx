@@ -1,9 +1,10 @@
 // src/app/(dashboard)/calendar/page.tsx
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Calendar as CalendarIcon, Clock, AlertCircle, Sparkles, Play, CalendarDays, ArrowRight } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, AlertCircle, Sparkles, Play, CalendarDays, ArrowRight, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { generateStudyPlan } from "@/server/actions/ai-planner";
+import { revalidatePath } from "next/cache";
 
 const DAYS_OF_WEEK = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
 
@@ -54,9 +55,7 @@ export default async function CalendarPage() {
                         await generateStudyPlan();
                     }}>
                         <button type="submit" className="group relative flex w-full md:w-auto items-center justify-center gap-2 bg-slate-900 text-white px-6 py-3.5 rounded-xl text-sm font-bold shadow-xl shadow-slate-900/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all overflow-hidden">
-                            {/* Hover'da ortaya çıkan Violet->Fuchsia Gradient */}
                             <div className="absolute inset-0 bg-gradient-to-r from-violet-600 to-fuchsia-600 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-
                             <span className="relative z-10 flex items-center gap-2">
                                 <Sparkles size={18} className="text-violet-300 group-hover:text-white transition-colors" />
                                 AI ile Plan Oluştur
@@ -67,11 +66,9 @@ export default async function CalendarPage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-
                 {/* SOL: Haftalık Izgara (Takvim Görünümü - lg:col-span-3) */}
                 <div className="lg:col-span-3 bg-white border border-slate-100 rounded-[2rem] shadow-sm overflow-hidden flex flex-col relative">
 
-                    {/* Takvim Üst Barı (Günler) */}
                     <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50/50">
                         {DAYS_OF_WEEK.map((day, index) => (
                             <div key={day} className="p-4 text-center border-r border-slate-100 last:border-r-0">
@@ -81,15 +78,13 @@ export default async function CalendarPage() {
                         ))}
                     </div>
 
-                    {/* Takvim Gövdesi */}
                     <div className="grid grid-cols-7 min-h-[600px] bg-slate-50/20">
                         {DAYS_OF_WEEK.map((day, i) => {
-                            const dbDayIndex = i === 6 ? 0 : i + 1; // Pazar=0, Pzt=1 formatına çevir
+                            const dbDayIndex = i === 6 ? 0 : i + 1;
                             const daySlots = availability.filter(slot => slot.dayOfWeek === dbDayIndex);
 
                             return (
                                 <div key={day} className="border-r border-slate-100 last:border-r-0 p-2 sm:p-3 flex flex-col gap-3 relative group hover:bg-slate-50/50 transition-colors">
-
                                     {/* Müsaitlik Göstergesi */}
                                     {daySlots.length > 0 && (
                                         <div className="space-y-1.5 mb-2">
@@ -112,33 +107,58 @@ export default async function CalendarPage() {
                                                 const subjectColor = task.subject?.color || '#8b5cf6';
 
                                                 return (
-                                                    <Link
-                                                        href={`/session/${task.id}`}
+                                                    <div
                                                         key={task.id}
-                                                        className="group/task relative block rounded-xl p-3 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 overflow-hidden"
+                                                        className="group/task relative block rounded-xl shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 overflow-hidden"
                                                         style={{
                                                             backgroundColor: `${subjectColor}15`, // %15 opacity arka plan
                                                             border: `1px solid ${subjectColor}30`
                                                         }}
                                                     >
-                                                        {/* Sol Taraf Kalın Renk Çizgisi (Apple Calendar Style) */}
+                                                        {/* Sol Taraf Kalın Renk Çizgisi */}
                                                         <div className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-xl" style={{ backgroundColor: subjectColor }}></div>
 
-                                                        <div className="flex flex-col gap-1.5 ml-1">
-                                                            <div className="flex justify-between items-start">
-                                                                <span className="text-[10px] font-bold uppercase tracking-wider truncate" style={{ color: subjectColor }}>
+                                                        <div className="flex flex-col gap-1 ml-1 p-2.5">
+                                                            {/* Başlık ve Aksiyon İkonları (Silme ve Oynat) */}
+                                                            <div className="relative flex justify-between items-start min-h-[28px]">
+                                                                {/* Metin normalde tam genişlik (w-full), hover olunca butonlara yer açmak için daralır */}
+                                                                <span
+                                                                    className="block text-[10px] font-bold uppercase tracking-wider truncate mt-0.5 w-full group-hover/task:max-w-[calc(100%-60px)] transition-all duration-300"
+                                                                    style={{ color: subjectColor }}
+                                                                >
                                                                     {task.subject?.name}
                                                                 </span>
-                                                                <Play size={12} style={{ color: subjectColor }} className="opacity-0 group-hover/task:opacity-100 transition-opacity" />
+
+                                                                {/* Butonlar "absolute" yapıldı. Normalde görünmez ve yer kaplamazlar. */}
+                                                                <div className="absolute right-0 top-0 flex items-center gap-1 opacity-0 group-hover/task:opacity-100 transition-opacity z-10 bg-white/50 backdrop-blur-[2px] p-0.5 rounded-lg">
+                                                                    <form action={async () => {
+                                                                        "use server";
+                                                                        // Görevi veritabanından sil ve takvimi güncelle
+                                                                        await prisma.studyTask.delete({ where: { id: task.id } });
+                                                                        revalidatePath("/calendar");
+                                                                    }}>
+                                                                        <button type="submit" title="Görevi Sil" className="flex items-center justify-center w-6 h-6 rounded-md bg-white hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors shadow-sm">
+                                                                            <Trash2 size={12} />
+                                                                        </button>
+                                                                    </form>
+                                                                    <Link href={`/session/${task.id}`} title="Çalışmayı Başlat" className="flex items-center justify-center w-6 h-6 rounded-md bg-white hover:bg-emerald-50 text-slate-400 hover:text-emerald-500 transition-colors shadow-sm">
+                                                                        <Play size={12} className="ml-0.5" />
+                                                                    </Link>
+                                                                </div>
                                                             </div>
-                                                            <p className="text-xs font-bold text-slate-800 leading-tight line-clamp-2">
-                                                                {task.title}
-                                                            </p>
-                                                            <span className="text-[10px] font-semibold text-slate-600 bg-white/60 w-fit px-1.5 py-0.5 rounded border" style={{ borderColor: `${subjectColor}20` }}>
+
+                                                            {/* Görev Başlığı (Tıklanabilir) */}
+                                                            <Link href={`/session/${task.id}`} className="block mt-0.5">
+                                                                <p className="text-xs font-bold text-slate-800 leading-tight line-clamp-2 hover:text-violet-700 transition-colors">
+                                                                    {task.title}
+                                                                </p>
+                                                            </Link>
+
+                                                            <span className="text-[10px] font-semibold text-slate-600 bg-white/60 w-fit px-1.5 py-0.5 mt-1 rounded border" style={{ borderColor: `${subjectColor}20` }}>
                                                                 {task.startTime} ({task.durationMinutes} dk)
                                                             </span>
                                                         </div>
-                                                    </Link>
+                                                    </div>
                                                 );
                                             }
                                             return null;
