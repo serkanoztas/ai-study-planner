@@ -132,7 +132,7 @@ Potential areas for further development include:
 ## 👨‍💻 Author
 
 **Serkan Öztaş**
-- LinkedIn: (linkedin.com/in/serkanoztas)
+- LinkedIn: [linkedin.com/in/serkanoztas](https://www.linkedin.com/in/serkanoztas)
 - GitHub: [@serkanoztas](https://github.com/serkanoztas)
 - Project Repository: [ai-study-planner](https://github.com/serkanoztas/ai-study-planner)
 
