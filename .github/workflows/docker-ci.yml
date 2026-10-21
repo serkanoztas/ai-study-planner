@@ -1,0 +1,28 @@
+name: Docker CI Pipeline
+
+# Bu workflow, 'main' dalına her push atıldığında tetiklenecek
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest # GitHub'ın bize sağladığı ücretsiz Linux sunucusu
+
+    steps:
+      - name: Kodu GitHub'dan Çek
+        uses: actions/checkout@v4
+
+      - name: Docker Buildx Kurulumu
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker İmajını İnşa Et ve Test Et
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false # Şimdilik sadece build testi yapıyoruz, bir yere göndermiyoruz
+          tags: ai-study-planner:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

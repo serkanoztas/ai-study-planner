@@ -1,0 +1,34 @@
+
+services:
+  # 1. PostgreSQL Veritabanı Servisi
+  db:
+    image: postgres:15-alpine
+    container_name: study_planner_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: mysecretpassword
+      POSTGRES_DB: ai_study_planner
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  # 2. Next.js Uygulama Servisi
+  web:
+    build: .
+    container_name: study_planner_web
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      # DİKKAT: localhost yerine servis adı olan 'db' kullanıyoruz
+      - DATABASE_URL=postgresql://postgres:mysecretpassword@db:5432/ai_study_planner?schema=public
+      # Mevcut bilgisayarındaki .env dosyasından API anahtarını çekecek
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    depends_on:
+      - db
+
+# Veritabanı verilerinin konteyner silinse bile kaybolmaması için kalıcı alan (volume)
+volumes:
+  pgdata:
